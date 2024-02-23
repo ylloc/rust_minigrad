@@ -62,7 +62,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rust-grad"
+name = "rust_minigrad"
 version = "0.1.0"
 dependencies = [
  "rand",
