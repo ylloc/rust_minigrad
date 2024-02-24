@@ -155,4 +155,54 @@ mod test {
         z.backward();
         assert_close!(x.grad(), -1., 0.001);
     }
+
+    #[test]
+    fn hard_test() {
+        let x = Variable::from(2.0);
+        let y = &x * &x;
+        let mut z = &(&y * &y) + &x;
+        z.backward();
+        assert_close!(x.grad(), 33.0, 0.0001);
+    }
+
+    #[test]
+    fn linregression() {
+        fn loss_fn(x: &Variable, y: &Variable) -> Variable {
+            (x - y).pow(2.)
+        }
+        let a = Variable::from(0.1);
+        let b = Variable::from(0.1);
+
+        let (k, l) = (23.1, 16.77);
+        let lin = (0..10)
+            .map(|_| random::<f64>())
+            .map(|x| (x, k * x + l))
+            .collect::<Vec<_>>();
+
+        let mut loss_f64 = 1.0;
+
+        let mut cnt = 0;
+
+        while loss_f64 >= 0.0001 {
+            let mut loss = Variable::from(0.0);
+            for &(x, y) in &lin {
+                loss = &loss + &loss_fn(&(&(&a * &Variable::from(x)) + &b), &Variable::from(y))
+            }
+
+            loss = &loss / &Variable::from(lin.len() as f64);
+            loss.backward();
+            loss_f64 = loss.data();
+            let (grad_a, grad_b) = (a.grad(), b.grad());
+
+            a.borrow_mut().data -= 0.1 * grad_a;
+            b.borrow_mut().data -= 0.1 * grad_b;
+            a.borrow_mut().grad = 0.0;
+            b.borrow_mut().grad = 0.0;
+            cnt += 1;
+        }
+
+        assert_close!(a.data(), k, 0.1);
+        assert_close!(b.data(), l, 0.1);
+        println!("{}", cnt);
+    }
 }
