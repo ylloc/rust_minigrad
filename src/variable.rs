@@ -7,7 +7,7 @@ use std::{
     collections::HashSet,
     fmt::Debug,
     hash::Hash,
-    intrinsics::{cosf64, sinf64},
+    intrinsics::{cosf64, expf64, sinf64},
     ops::{Add, Deref, Mul, Neg, Sub},
     rc::Rc,
 };
@@ -153,6 +153,30 @@ impl Variable {
         });
     }
 
+    pub fn dfs(&self, top_sort: &mut Vec<Variable>, used: &mut HashSet<Variable>) {
+        if used.insert(self.clone()) {
+            self.borrow().children.iter().for_each(|child| {
+                child.dfs(top_sort, used);
+            });
+            top_sort.push(self.clone());
+        }
+    }
+
+    pub fn pow(&self, _power: f64) -> Variable {
+        let out = Variable::from(self.borrow().data.powf(_power));
+        out.borrow_mut().op = Some(Operation::POW);
+        out.borrow_mut().children = vec![self.clone(), Variable::from(_power)];
+        out.borrow_mut().fun = Some(|x: &VariableData| {
+            // w -> ... -> x -> y (y = x^p) -> ... -> L
+            // dL/dx = dL/dy * dy/dx = dL/dy * p * x^(p-1)
+            let pow = x.children[1].borrow().data;
+            let a = x.children[0].borrow().data.powf(pow - 1.0) * pow;
+            x.children[0].borrow_mut().grad += x.grad * a;
+        });
+        out.borrow_mut().id = random();
+        out
+    }
+
     pub fn sin(&self) -> Variable {
         let out = Variable::from(unsafe { sinf64(self.borrow().data) });
         out.borrow_mut().op = Some(Operation::Custom(String::from("sin")));
@@ -183,37 +207,38 @@ impl Variable {
         out.borrow_mut().children = vec![self.clone()];
         out.borrow_mut().fun = Some(|x: &VariableData| {
             if x.children[0].borrow().data > 0.0 {
+                // x.grad * I[x > 0]
                 x.children[0].borrow_mut().grad += x.grad;
             }
         });
         out
     }
 
-    pub fn silu(&self) -> Variable {
-        unimplemented!()
-    }
-
-    pub fn pow(&self, _power: f64) -> Variable {
-        let out = Variable::from(self.borrow().data.powf(_power));
-        out.borrow_mut().op = Some(Operation::POW);
-        out.borrow_mut().children = vec![self.clone(), Variable::from(_power)];
+    pub fn exp(&self) -> Variable {
+        let exp = unsafe { expf64(self.borrow().data) };
+        let out = Variable::from(exp);
+        out.borrow_mut().op = Some(Operation::Custom(String::from("exp")));
+        out.borrow_mut().children = vec![self.clone()];
         out.borrow_mut().fun = Some(|x: &VariableData| {
-            // w -> ... -> x -> y (y = x^p) -> ... -> L
-            // dL/dx = dL/dy * dy/dx = dL/dy * p * x^(p-1)
-            let pow = x.children[1].borrow().data;
-            let a = x.children[0].borrow().data.powf(pow - 1.0) * pow;
-            x.children[0].borrow_mut().grad += x.grad * a;
+            // x -> y (=exp(x)) -> L
+            // dL/dx=dL/dy * dy/dx
+            let val = unsafe { expf64(x.children[0].borrow_mut().data) };
+            x.children[0].borrow_mut().grad += x.grad * val;
         });
-        out.borrow_mut().id = random();
         out
     }
 
-    pub fn dfs(&self, top_sort: &mut Vec<Variable>, used: &mut HashSet<Variable>) {
-        if used.insert(self.clone()) {
-            self.borrow().children.iter().for_each(|child| {
-                child.dfs(top_sort, used);
-            });
-            top_sort.push(self.clone());
-        }
+    pub fn silu(&self) -> Variable {
+        let out = self * &self.sigmoid();
+        out.borrow_mut().op = Some(Operation::Custom(String::from("silu"))); // todo
+        out
+    }
+
+    pub fn sigmoid(&self) -> Variable {
+        // x -> 1 / (1 + exp(-x))
+        // maybe faster?
+        let out = (&Variable::from(1.0) + &(-self).exp()).pow(-1.0);
+        out.borrow_mut().op = Some(Operation::Custom(String::from("sigmoid"))); // is it useful?
+        out
     }
 }

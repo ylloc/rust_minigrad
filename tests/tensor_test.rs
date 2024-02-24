@@ -121,4 +121,20 @@ mod test {
         z.backward();
         as_close!(x.borrow().grad, 0., 0.0001);
     }
+
+    #[test]
+    fn simple_exp() {
+        let x = Variable::from(5);
+        let mut y = x.exp();
+        y.backward();
+        as_close!(x.borrow().grad, y.borrow().data, 0.0001);
+    }
+
+    #[test]
+    fn simple_sigmoid_test() {
+        let x = Variable::from(2.0);
+        let mut y = x.sigmoid();
+        y.backward();
+        as_close!(x.borrow().grad, 0.1049935854, 0.001);
+    }
 }
