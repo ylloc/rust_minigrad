@@ -135,6 +135,14 @@ impl Variable {
         Variable(Rc::new(RefCell::new(tensor)))
     }
 
+    pub fn grad(&self) -> f64 {
+        self.borrow().grad
+    }
+
+    pub fn data(&self) -> f64 {
+        self.borrow().data
+    }
+
     pub fn from<T: Into<f64>>(f: T) -> Variable {
         let out = Variable::default();
         out.borrow_mut().data = f.into();
@@ -153,7 +161,7 @@ impl Variable {
         });
     }
 
-    pub fn dfs(&self, top_sort: &mut Vec<Variable>, used: &mut HashSet<Variable>) {
+    fn dfs(&self, top_sort: &mut Vec<Variable>, used: &mut HashSet<Variable>) {
         if used.insert(self.clone()) {
             self.borrow().children.iter().for_each(|child| {
                 child.dfs(top_sort, used);

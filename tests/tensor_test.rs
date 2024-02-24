@@ -35,8 +35,8 @@ mod test {
         assert_eq!(var.0.borrow().id, id_);
         let s = &var * 3.;
         let m = &var + 6.;
-        assert_eq!(s.0.borrow().data, 6.);
-        assert_eq!(m.0.borrow().data, 8.);
+        assert_eq!(s.data(), 6.);
+        assert_eq!(m.data(), 8.);
     }
 
     #[test]
@@ -45,7 +45,7 @@ mod test {
         let b = Variable::from(4.);
         let mut c = &a + &b; // why &mut ?
         c.backward();
-        assert_eq!(a.borrow().grad, 1.0);
+        assert_eq!(a.grad(), 1.0);
     }
 
     #[test]
@@ -53,7 +53,7 @@ mod test {
         let a = Variable::from(3.);
         let mut c = &a + &a;
         c.backward();
-        assert_eq!(a.borrow().grad, 2.0);
+        assert_eq!(a.grad(), 2.0);
     }
 
     #[test]
@@ -62,8 +62,8 @@ mod test {
         let b = Variable::from(4.);
         let mut c = &a * &b;
         c.backward();
-        assert_eq!(a.borrow().grad, 4.0);
-        assert_eq!(b.borrow().grad, 3.0);
+        assert_eq!(a.grad(), 4.0);
+        assert_eq!(b.grad(), 3.0);
     }
 
     #[test]
@@ -71,7 +71,15 @@ mod test {
         let a = Variable::from(3.);
         let mut c = &a * &a;
         c.backward();
-        assert_eq!(a.borrow().grad, 6.0);
+        assert_eq!(a.grad(), 6.0);
+    }
+
+    #[test]
+    fn mul_const() {
+        let a = Variable::from(3.);
+        let mut c = &a * &Variable::from(2.);
+        c.backward();
+        assert_eq!(a.grad(), 2.);
     }
 
     #[test]
@@ -82,7 +90,7 @@ mod test {
         y.backward();
 
         // sin'(3) ~= -0.9899924966
-        as_close!(x.borrow().grad, -0.9899924966, 0.0001);
+        as_close!(x.grad(), -0.9899924966, 0.0001);
     }
 
     #[test]
@@ -92,7 +100,7 @@ mod test {
         let mut y = x.cos();
         y.backward();
         // cos'(3) ~= -0.14112000806
-        as_close!(x.borrow().grad, -0.14112000806, 0.0001);
+        as_close!(x.grad(), -0.14112000806, 0.0001);
     }
 
     #[test]
@@ -101,7 +109,7 @@ mod test {
         let y = Variable::from(10.);
         let mut z = (&x + &y).relu();
         z.backward();
-        as_close!(x.borrow().grad, 1.0, 0.0001);
+        as_close!(x.grad(), 1.0, 0.0001);
     }
 
     #[test]
@@ -111,7 +119,7 @@ mod test {
         let mut z = (&x + &y).pow(2.).relu();
         // d/dx [relu((x + y) ^ 2)] = 2x + 2y = 30
         z.backward();
-        as_close!(x.borrow().grad, 30., 0.0001);
+        as_close!(x.grad(), 30., 0.0001);
     }
 
     #[test]
@@ -119,7 +127,7 @@ mod test {
         let x = Variable::from(-5.);
         let mut z = x.relu();
         z.backward();
-        as_close!(x.borrow().grad, 0., 0.0001);
+        as_close!(x.grad(), 0., 0.0001);
     }
 
     #[test]
@@ -127,7 +135,7 @@ mod test {
         let x = Variable::from(5);
         let mut y = x.exp();
         y.backward();
-        as_close!(x.borrow().grad, y.borrow().data, 0.0001);
+        as_close!(x.grad(), y.data(), 0.0001);
     }
 
     #[test]
@@ -135,6 +143,6 @@ mod test {
         let x = Variable::from(2.0);
         let mut y = x.sigmoid();
         y.backward();
-        as_close!(x.borrow().grad, 0.1049935854, 0.001);
+        as_close!(x.grad(), 0.1049935854, 0.001);
     }
 }
