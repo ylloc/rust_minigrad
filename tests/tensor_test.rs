@@ -1,7 +1,7 @@
 use rand::random;
 use rust_minigrad::{Operation, Variable, VariableData};
 
-macro_rules! as_close {
+macro_rules! assert_close {
     ($left:expr, $right:expr, $tol:expr) => {{
         let (left, right, tol) = (&$left, &$right, &$tol);
         if !((*left - *right).abs() < *tol) {
@@ -90,7 +90,7 @@ mod test {
         y.backward();
 
         // sin'(3) ~= -0.9899924966
-        as_close!(x.grad(), -0.9899924966, 0.0001);
+        assert_close!(x.grad(), -0.9899924966, 0.0001);
     }
 
     #[test]
@@ -100,7 +100,7 @@ mod test {
         let mut y = x.cos();
         y.backward();
         // cos'(3) ~= -0.14112000806
-        as_close!(x.grad(), -0.14112000806, 0.0001);
+        assert_close!(x.grad(), -0.14112000806, 0.0001);
     }
 
     #[test]
@@ -109,7 +109,7 @@ mod test {
         let y = Variable::from(10.);
         let mut z = (&x + &y).relu();
         z.backward();
-        as_close!(x.grad(), 1.0, 0.0001);
+        assert_close!(x.grad(), 1.0, 0.0001);
     }
 
     #[test]
@@ -117,9 +117,10 @@ mod test {
         let x = Variable::from(5.);
         let y = Variable::from(10.);
         let mut z = (&x + &y).pow(2.).relu();
+        // println!("{:?}", z);
         // d/dx [relu((x + y) ^ 2)] = 2x + 2y = 30
         z.backward();
-        as_close!(x.grad(), 30., 0.0001);
+        assert_close!(x.grad(), 30., 0.0001);
     }
 
     #[test]
@@ -127,7 +128,7 @@ mod test {
         let x = Variable::from(-5.);
         let mut z = x.relu();
         z.backward();
-        as_close!(x.grad(), 0., 0.0001);
+        assert_close!(x.grad(), 0., 0.0001);
     }
 
     #[test]
@@ -135,7 +136,7 @@ mod test {
         let x = Variable::from(5);
         let mut y = x.exp();
         y.backward();
-        as_close!(x.grad(), y.data(), 0.0001);
+        assert_close!(x.grad(), y.data(), 0.0001);
     }
 
     #[test]
@@ -143,6 +144,15 @@ mod test {
         let x = Variable::from(2.0);
         let mut y = x.sigmoid();
         y.backward();
-        as_close!(x.grad(), 0.1049935854, 0.001);
+        assert_close!(x.grad(), 0.1049935854, 0.001);
+    }
+
+    #[test]
+    fn simple_div() {
+        let x = Variable::from(2.0);
+        let y = &x * &x;
+        let mut z = &Variable::from(4.0) / &y;
+        z.backward();
+        assert_close!(x.grad(), -1., 0.001);
     }
 }

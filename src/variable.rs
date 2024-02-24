@@ -8,22 +8,24 @@ use std::{
     fmt::Debug,
     hash::Hash,
     intrinsics::{cosf64, expf64, sinf64},
-    ops::{Add, Deref, Mul, Neg, Sub},
+    ops::{Add, Deref, Div, Mul, Neg, Sub},
     rc::Rc,
 };
 
 #[derive(Default, Clone)]
 pub struct Variable(pub Rc<RefCell<VariableData>>);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Operation {
     ADD,
     MUL,
     POW,
+    DIV,
     Custom(String),
+    None,
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct VariableData {
     pub data: f64,
     pub grad: f64,
@@ -51,12 +53,6 @@ impl PartialEq for Variable {
 
 impl Eq for Variable {}
 
-impl Debug for Variable {
-    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
-    }
-}
-
 impl Hash for Variable {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.borrow().id.hash(state)
@@ -70,13 +66,12 @@ impl Add for &Variable {
         let out = Variable::from(self.borrow().data + rhs.borrow().data);
         out.borrow_mut().op = Some(Operation::ADD);
         out.borrow_mut().children = vec![Variable(Rc::clone(self)), Variable(Rc::clone(rhs))];
-
         out.borrow_mut().fun = Some(|x: &VariableData| {
             x.children[0].borrow_mut().grad += x.grad;
             x.children[1].borrow_mut().grad += x.grad;
         });
-
         out.borrow_mut().id = random();
+
         out
     }
 }
@@ -102,6 +97,27 @@ impl Mul for &Variable {
             x.children[0].borrow_mut().grad += b * x.grad;
             x.children[1].borrow_mut().grad += a * x.grad;
         });
+
+        out
+    }
+}
+
+impl Div for &Variable {
+    type Output = Variable;
+
+    fn div(self, rhs: &Variable) -> Self::Output {
+        assert!(rhs.data() != 0.0, "dividing by zero"); // todo()
+        let out = Variable::from(self.borrow().data / rhs.borrow().data);
+        out.borrow_mut().op = Some(Operation::DIV);
+        out.borrow_mut().children = vec![Variable(Rc::clone(self)), Variable(Rc::clone(rhs))];
+        out.borrow_mut().fun = Some(|x: &VariableData| {
+            let a = x.children[0].borrow().data;
+            let b = x.children[1].borrow().data;
+            // todo() : * / 0
+            x.children[0].borrow_mut().grad += x.grad / b;
+            x.children[1].borrow_mut().grad += a * -x.grad / (b.powf(2.));
+        });
+
         out
     }
 }
