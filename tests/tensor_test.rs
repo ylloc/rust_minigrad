@@ -1,6 +1,5 @@
 use rand::random;
-use rust_minigrad::{Operation, Variable, VariableData};
-
+use rust_minigrad::{Operation, Tensor1D, Tensor2D, Variable, VariableData};
 macro_rules! assert_close {
     ($left:expr, $right:expr, $tol:expr) => {{
         let (left, right, tol) = (&$left, &$right, &$tol);
@@ -238,5 +237,16 @@ mod test {
             x = x.silu();
         }
         assert_eq!(x.borrow().children.len(), 2);
+    }
+
+    #[test]
+    fn test_1_d() {
+        let x = Tensor1D::new(2);
+        *x.0.borrow_mut() = vec![Variable::from(1.0), Variable::from(2.0)];
+        let y = &x * &x.t();
+        // grad xx^t = 2x
+        y.backward();
+        assert_close!(x.borrow()[0].grad(), 2.0, 0.001);
+        assert_close!(x.borrow()[1].grad(), 4.0, 0.001);
     }
 }
