@@ -1,5 +1,5 @@
 use rand::random;
-use rust_minigrad::{Operation, Tensor, TensorData};
+use rust_minigrad::{Operation, Variable, VariableData};
 
 macro_rules! as_close {
     ($left:expr, $right:expr, $tol:expr) => {{
@@ -22,7 +22,7 @@ mod test {
     #[test]
     fn construct() {
         let id_ = random();
-        let data = TensorData {
+        let data = VariableData {
             data: 2.0,
             grad: 0.0,
             id: id_,
@@ -31,18 +31,18 @@ mod test {
             children: Vec::new(),
         };
 
-        let tensor = Tensor::new(data);
-        assert_eq!(tensor.0.borrow().id, id_);
-        let s = &tensor * 3.;
-        let m = &tensor + 6.;
+        let var = Variable::new(data);
+        assert_eq!(var.0.borrow().id, id_);
+        let s = &var * 3.;
+        let m = &var + 6.;
         assert_eq!(s.0.borrow().data, 6.);
         assert_eq!(m.0.borrow().data, 8.);
     }
 
     #[test]
     fn simple_grad_add() {
-        let a = Tensor::from(3.);
-        let b = Tensor::from(4.);
+        let a = Variable::from(3.);
+        let b = Variable::from(4.);
         let mut c = &a + &b; // why &mut ?
         c.backward();
         assert_eq!(a.borrow().grad, 1.0);
@@ -50,7 +50,7 @@ mod test {
 
     #[test]
     fn simple_grad_add_self() {
-        let a = Tensor::from(3.);
+        let a = Variable::from(3.);
         let mut c = &a + &a;
         c.backward();
         assert_eq!(a.borrow().grad, 2.0);
@@ -58,8 +58,8 @@ mod test {
 
     #[test]
     fn simple_grad_mul() {
-        let a = Tensor::from(3.);
-        let b = Tensor::from(4.);
+        let a = Variable::from(3.);
+        let b = Variable::from(4.);
         let mut c = &a * &b;
         c.backward();
         assert_eq!(a.borrow().grad, 4.0);
@@ -68,7 +68,7 @@ mod test {
 
     #[test]
     fn simple_grad_self_mul() {
-        let a = Tensor::from(3.);
+        let a = Variable::from(3.);
         let mut c = &a * &a;
         c.backward();
         assert_eq!(a.borrow().grad, 6.0);
@@ -76,7 +76,7 @@ mod test {
 
     #[test]
     fn simple_sin_test() {
-        let x = Tensor::from(3.);
+        let x = Variable::from(3.);
 
         let mut y = x.sin();
         y.backward();
@@ -87,7 +87,7 @@ mod test {
 
     #[test]
     fn simple_cos_test() {
-        let x = Tensor::from(3.);
+        let x = Variable::from(3.);
 
         let mut y = x.cos();
         y.backward();
