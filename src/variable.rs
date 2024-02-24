@@ -265,4 +265,15 @@ impl Variable {
         out.borrow_mut().op = Some(Operation::Custom(String::from("sigmoid"))); // is it useful?
         out
     }
+
+    pub fn zero_grad(&self) {
+        assert!(self.borrow().children.is_empty()); // why do we need it?
+
+        self.borrow_mut().grad = 0.0;
+    }
+
+    pub fn step(&self, lr: f64) {
+        let grad = self.grad();
+        self.borrow_mut().data -= lr * grad;
+    }
 }

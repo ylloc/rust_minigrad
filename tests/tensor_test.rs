@@ -181,7 +181,7 @@ mod test {
 
         let mut loss_f64 = 1.0;
 
-        let mut cnt = 0;
+        let mut cnt = 1;
 
         while loss_f64 >= 0.0001 {
             let mut loss = Variable::from(0.0);
@@ -190,19 +190,53 @@ mod test {
             }
 
             loss = &loss / &Variable::from(lin.len() as f64);
+
             loss.backward();
             loss_f64 = loss.data();
-            let (grad_a, grad_b) = (a.grad(), b.grad());
 
-            a.borrow_mut().data -= 0.1 * grad_a;
-            b.borrow_mut().data -= 0.1 * grad_b;
-            a.borrow_mut().grad = 0.0;
-            b.borrow_mut().grad = 0.0;
+            a.step(0.3);
+            b.step(0.3);
+            a.zero_grad();
+            b.zero_grad();
+
             cnt += 1;
         }
 
         assert_close!(a.data(), k, 0.1);
         assert_close!(b.data(), l, 0.1);
         println!("{}", cnt);
+    }
+
+    #[test]
+    fn rc_check_s() {
+        let x = Variable::from(3.);
+        let mut a;
+        {
+            a = &x * &Variable::from(0.3);
+        }
+        a.backward();
+        println!("{}", x.grad());
+    }
+
+    #[test]
+    fn rc_check_h() {
+        let x = Variable::from(1.);
+        let y = x.clone();
+
+        let x = &x * &x;
+        let mut x = &x * &x;
+        x.backward();
+        assert_close!(y.grad(), 4., 0.1);
+    }
+
+    #[test]
+    fn scope_test() {
+        let mut x = Variable::from(0.1);
+        let y = x.clone();
+        {
+            x = &x * &Variable::from(0.3);
+            x = x.silu();
+        }
+        assert_eq!(x.borrow().children.len(), 2);
     }
 }
