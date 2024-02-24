@@ -5,8 +5,8 @@ use std::{
     collections::HashSet,
     fmt::Debug,
     hash::Hash,
-    ops::{Add, Deref},
-    ops::{Mul, Neg, Sub},
+    intrinsics::{cosf64, sinf64},
+    ops::{Add, Deref, Mul, Neg, Sub},
     rc::Rc,
 };
 
@@ -18,6 +18,7 @@ pub enum Operation {
     ADD,
     MUL,
     POW,
+    Custom(String),
 }
 
 #[derive(Debug, Default)]
@@ -148,6 +149,36 @@ impl Tensor {
                 fun(&it.borrow());
             }
         });
+    }
+
+    pub fn sin(&self) -> Tensor {
+        let out = Tensor::from(unsafe { sinf64(self.borrow().data) });
+        out.borrow_mut().op = Some(Operation::Custom(String::from("sin")));
+        out.borrow_mut().children = vec![self.clone()];
+        out.borrow_mut().fun = Some(|x: &TensorData| {
+            let val = x.children[0].borrow().data;
+            x.children[0].borrow_mut().grad += x.grad * unsafe { cosf64(val) };
+        });
+        out
+    }
+
+    pub fn cos(&self) -> Tensor {
+        let out = Tensor::from(unsafe { cosf64(self.borrow().data) });
+        out.borrow_mut().op = Some(Operation::Custom(String::from("cos")));
+        out.borrow_mut().children = vec![self.clone()];
+        out.borrow_mut().fun = Some(|x: &TensorData| {
+            let val = x.children[0].borrow().data;
+            x.children[0].borrow_mut().grad += -x.grad * unsafe { sinf64(val) };
+        });
+        out
+    }
+
+    pub fn relu(&self) -> Tensor {
+        unimplemented!()
+    }
+
+    pub fn silu(&self) -> Tensor {
+        unimplemented!()
     }
 
     pub fn pow(&self, _power: f64) -> Tensor {

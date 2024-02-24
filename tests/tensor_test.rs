@@ -1,6 +1,20 @@
 use rand::random;
 use rust_minigrad::{Operation, Tensor, TensorData};
 
+macro_rules! as_close {
+    ($left:expr, $right:expr, $tol:expr) => {{
+        let (left, right, tol) = (&$left, &$right, &$tol);
+        if !((*left - *right).abs() < *tol) {
+            panic!(
+                "assertion failed: `(left ~ right)`\n  left: `{}`,\n right: `{}`\n  diff: `{}`",
+                *left,
+                *right,
+                (*left - *right).abs()
+            );
+        }
+    }};
+}
+
 #[cfg(test)]
 mod test {
     use crate::*;
@@ -58,5 +72,27 @@ mod test {
         let mut c = &a * &a;
         c.backward();
         assert_eq!(a.borrow().grad, 6.0);
+    }
+
+    #[test]
+    fn simple_sin_test() {
+        let x = Tensor::from(3.);
+
+        let mut y = x.sin();
+        y.backward();
+
+        // sin'(3) ~= -0.9899924966
+        as_close!(x.borrow().grad, -0.9899924966, 0.0001);
+    }
+
+    #[test]
+    fn simple_cos_test() {
+        let x = Tensor::from(3.);
+
+        let mut y = x.cos();
+        y.backward();
+
+        // cos'(3) ~= -0.14112000806
+        as_close!(x.borrow().grad, -0.14112000806, 0.0001);
     }
 }
