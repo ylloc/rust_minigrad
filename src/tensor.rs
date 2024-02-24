@@ -11,8 +11,6 @@ pub struct Tensor1D(pub Rc<RefCell<Vec<Variable>>>, pub usize);
 
 #[derive(Default)]
 pub struct Tensor2D(pub Rc<RefCell<Vec<Vec<Variable>>>>, pub (usize, usize));
-// struct Tensor3D(Vec<Vec<Variable>>, (usize, usize, usize));
-// struct Tensor4D(Vec<Vec<Vec<Variable>>>, (usize, usize, usize, usize));
 
 impl Deref for Tensor1D {
     type Target = Rc<RefCell<Vec<Variable>>>;

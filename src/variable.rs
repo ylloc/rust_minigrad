@@ -29,9 +29,7 @@ pub enum Operation {
 pub struct VariableData {
     pub data: f64,
     pub grad: f64,
-    /// random id: u16. todo(...)
     pub id: u16,
-    /// why not impl Fn(...) -> ... ?
     pub fun: Option<fn(&VariableData)>,
     pub op: Option<Operation>,
     pub children: Vec<Variable>,
@@ -106,14 +104,14 @@ impl Div for &Variable {
     type Output = Variable;
 
     fn div(self, rhs: &Variable) -> Self::Output {
-        assert!(rhs.data() != 0.0, "dividing by zero"); // todo()
+        assert!(rhs.data() != 0.0, "dividing by zero"); // todo: refactor
         let out = Variable::from(self.borrow().data / rhs.borrow().data);
         out.borrow_mut().op = Some(Operation::DIV);
         out.borrow_mut().children = vec![Variable(Rc::clone(self)), Variable(Rc::clone(rhs))];
         out.borrow_mut().fun = Some(|x: &VariableData| {
             let a = x.children[0].borrow().data;
             let b = x.children[1].borrow().data;
-            // todo() : * / 0
+            // todo: _ / 0
             x.children[0].borrow_mut().grad += x.grad / b;
             x.children[1].borrow_mut().grad += a * -x.grad / (b.powf(2.));
         });
@@ -191,8 +189,6 @@ impl Variable {
         out.borrow_mut().op = Some(Operation::POW);
         out.borrow_mut().children = vec![self.clone(), Variable::from(_power)];
         out.borrow_mut().fun = Some(|x: &VariableData| {
-            // w -> ... -> x -> y (y = x^p) -> ... -> L
-            // dL/dx = dL/dy * dy/dx = dL/dy * p * x^(p-1)
             let pow = x.children[1].borrow().data;
             let a = x.children[0].borrow().data.powf(pow - 1.0) * pow;
             x.children[0].borrow_mut().grad += x.grad * a;
@@ -224,14 +220,11 @@ impl Variable {
     }
 
     pub fn relu(&self) -> Variable {
-        // x -> y (=relu x) -> L
-        // dL/dx = dL/dy * dy/dx = dL/dy * I[x>0]
         let out = Variable::from(max(self.borrow().data, 0.0));
         out.borrow_mut().op = Some(Operation::Custom(String::from("relu")));
         out.borrow_mut().children = vec![self.clone()];
         out.borrow_mut().fun = Some(|x: &VariableData| {
             if x.children[0].borrow().data > 0.0 {
-                // x.grad * I[x > 0]
                 x.children[0].borrow_mut().grad += x.grad;
             }
         });
@@ -244,8 +237,6 @@ impl Variable {
         out.borrow_mut().op = Some(Operation::Custom(String::from("exp")));
         out.borrow_mut().children = vec![self.clone()];
         out.borrow_mut().fun = Some(|x: &VariableData| {
-            // x -> y (=exp(x)) -> L
-            // dL/dx=dL/dy * dy/dx
             let val = unsafe { expf64(x.children[0].borrow_mut().data) };
             x.children[0].borrow_mut().grad += x.grad * val;
         });
@@ -253,22 +244,16 @@ impl Variable {
     }
 
     pub fn silu(&self) -> Variable {
-        let out = self * &self.sigmoid();
-        out.borrow_mut().op = Some(Operation::Custom(String::from("silu"))); // todo
-        out
+        self * &self.sigmoid()
     }
 
     pub fn sigmoid(&self) -> Variable {
-        // x -> 1 / (1 + exp(-x))
-        // maybe faster?
-        let out = (&Variable::from(1.0) + &(-self).exp()).pow(-1.0);
-        out.borrow_mut().op = Some(Operation::Custom(String::from("sigmoid"))); // is it useful?
-        out
+        (&Variable::from(1.0) + &(-self).exp()).pow(-1.0)
     }
 
     pub fn zero_grad(&self) {
-        assert!(self.borrow().children.is_empty()); // why do we need it?
-
+        // todo: why do we need it?
+        assert!(self.borrow().children.is_empty());
         self.borrow_mut().grad = 0.0;
     }
 
