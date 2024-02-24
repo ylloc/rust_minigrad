@@ -1,5 +1,7 @@
 use rand::prelude::*;
 
+use crate::utils::max;
+
 use std::{
     cell::RefCell,
     collections::HashSet,
@@ -174,7 +176,17 @@ impl Variable {
     }
 
     pub fn relu(&self) -> Variable {
-        unimplemented!()
+        // x -> y (=relu x) -> L
+        // dL/dx = dL/dy * dy/dx = dL/dy * I[x>0]
+        let out = Variable::from(max(self.borrow().data, 0.0));
+        out.borrow_mut().op = Some(Operation::Custom(String::from("relu")));
+        out.borrow_mut().children = vec![self.clone()];
+        out.borrow_mut().fun = Some(|x: &VariableData| {
+            if x.children[0].borrow().data > 0.0 {
+                x.children[0].borrow_mut().grad += x.grad;
+            }
+        });
+        out
     }
 
     pub fn silu(&self) -> Variable {
@@ -184,13 +196,13 @@ impl Variable {
     pub fn pow(&self, _power: f64) -> Variable {
         let out = Variable::from(self.borrow().data.powf(_power));
         out.borrow_mut().op = Some(Operation::POW);
-        out.borrow_mut().children = vec![self.clone()];
-        // w -> ... -> x -> y (y = x^p) -> ... -> L
-        // dL/dx = dL/dy * dy/dx = dL/dy * p * x^(p-1)
+        out.borrow_mut().children = vec![self.clone(), Variable::from(_power)];
         out.borrow_mut().fun = Some(|x: &VariableData| {
+            // w -> ... -> x -> y (y = x^p) -> ... -> L
+            // dL/dx = dL/dy * dy/dx = dL/dy * p * x^(p-1)
             let pow = x.children[1].borrow().data;
-            x.children[0].borrow_mut().grad +=
-                x.grad * x.children[0].borrow().data.powf(pow - 1.0) * pow;
+            let a = x.children[0].borrow().data.powf(pow - 1.0) * pow;
+            x.children[0].borrow_mut().grad += x.grad * a;
         });
         out.borrow_mut().id = random();
         out

@@ -91,8 +91,34 @@ mod test {
 
         let mut y = x.cos();
         y.backward();
-
         // cos'(3) ~= -0.14112000806
         as_close!(x.borrow().grad, -0.14112000806, 0.0001);
+    }
+
+    #[test]
+    fn simple_relu() {
+        let x = Variable::from(5.);
+        let y = Variable::from(10.);
+        let mut z = (&x + &y).relu();
+        z.backward();
+        as_close!(x.borrow().grad, 1.0, 0.0001);
+    }
+
+    #[test]
+    fn adv_relu() {
+        let x = Variable::from(5.);
+        let y = Variable::from(10.);
+        let mut z = (&x + &y).pow(2.).relu();
+        // d/dx [relu((x + y) ^ 2)] = 2x + 2y = 30
+        z.backward();
+        as_close!(x.borrow().grad, 30., 0.0001);
+    }
+
+    #[test]
+    fn adv_relu_neg() {
+        let x = Variable::from(-5.);
+        let mut z = x.relu();
+        z.backward();
+        as_close!(x.borrow().grad, 0., 0.0001);
     }
 }
