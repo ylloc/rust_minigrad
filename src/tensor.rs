@@ -19,7 +19,11 @@ impl Deref for Tensor1D {
 
 impl Tensor2D {
     pub fn new(r: usize, c: usize) -> Tensor2D {
-        let v = vec![vec![Variable::default(); c]; r];
+        // we can't use vec![T::default(), ...], because of cloning Rc...
+        // todo: something smarter?
+        let v = (0..r)
+            .map(|_| (0..c).map(|_| Variable::default()).collect::<Vec<_>>())
+            .collect::<Vec<_>>();
         Tensor2D(Rc::new(RefCell::new(v)), (r, c))
     }
 }
@@ -75,7 +79,12 @@ impl Tensor1D {
     }
 
     pub fn new(n: usize) -> Tensor1D {
-        Tensor1D(Rc::new(RefCell::new(vec![Variable::default(); n])), n)
+        Tensor1D(
+            Rc::new(RefCell::new(
+                (0..n).map(|_| Variable::default()).collect::<Vec<_>>(),
+            )),
+            n,
+        )
     }
 
     pub fn cast(&self) -> Variable {
@@ -97,6 +106,15 @@ impl Tensor1D {
         }
         drop(interior_new);
         y
+    }
+
+    pub fn from(v: &Vec<f64>) -> Tensor1D {
+        // todo ...
+        let out = Self::new(v.len());
+        for i in 0..(v.len()) {
+            out.borrow_mut()[i].0.borrow_mut().data = v[i];
+        }
+        out
     }
 
     pub fn sin(&self) -> Tensor1D {

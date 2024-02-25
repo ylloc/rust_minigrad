@@ -16,6 +16,8 @@ macro_rules! assert_close {
 
 #[cfg(test)]
 mod test {
+    use std::pin::Pin;
+
     use crate::*;
 
     #[test]
@@ -271,5 +273,34 @@ mod test {
         ];
         let b = a.exp();
         assert_close!(b.borrow()[0].data(), 2.718281828459045, 0.001);
+    }
+
+    #[test]
+    fn test3() {
+        let a = Tensor1D::new(6);
+        let b = a.clone();
+        *a.borrow_mut() = vec![
+            Variable::from(1.),
+            Variable::from(2.),
+            Variable::from(3.),
+            Variable::from(4.),
+            Variable::from(5.),
+            Variable::from(6.),
+        ];
+        let x = a.t() * a;
+        assert_close!(x.borrow()[0].data(), 91.0, 0.001);
+        x.backward();
+        for i in 0..6 {
+            assert_close!(2. * (i + 1) as f64, b.borrow()[i].grad(), 0.001);
+        }
+    }
+
+    #[test]
+    fn test4() {
+        let x = Tensor1D::from(&vec![1., 2., 3., 4., 5., 7.]);
+        let z = x.clone();
+        let y = &x.t() * x;
+        y.backward();
+        assert_close!(z.borrow_mut()[5].grad(), 14., 0.001);
     }
 }
