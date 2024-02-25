@@ -143,6 +143,10 @@ impl Tensor1D {
         )
     }
 
+    pub fn shape(&self) -> (usize,) {
+        (self.1,)
+    }
+
     pub fn from(v: &Vec<f64>) -> Tensor1D {
         assert!(!v.is_empty(), "can't create empty tensor2D");
 
@@ -276,7 +280,7 @@ impl Tensor2D {
     }
 
     pub fn sum(&self) -> Variable {
-        // Same stratege as in Tensor1D
+        // Same strategy as in Tensor1D
         let out = Variable::from(
             self.borrow()
                 .iter()
