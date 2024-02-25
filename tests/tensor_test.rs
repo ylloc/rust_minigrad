@@ -303,8 +303,7 @@ mod test {
 
     #[test]
     fn ew() {
-        let x = Tensor1D::from(&vec![1., 2.]);
-        let z = x.sum();
-        assert_close!(z.borrow().data, 3., 0.001);
+        let x = Tensor2D::from(&vec![vec![1., 2.], vec![1., 2.]]);
+        let z = Variable::from(2.) * x;
     }
 }

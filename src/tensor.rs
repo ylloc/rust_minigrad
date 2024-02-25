@@ -25,29 +25,9 @@ impl Deref for Tensor2D {
     }
 }
 
-impl Tensor2D {
-    pub fn new(r: usize, c: usize) -> Tensor2D {
-        // we can't use vec![T::default(), ...], because of cloning Rc...
-        // todo: something smarter?
-        let v = (0..r)
-            .map(|_| (0..c).map(|_| Variable::default()).collect::<Vec<_>>())
-            .collect::<Vec<_>>();
-        Tensor2D(Rc::new(RefCell::new(v)), (r, c))
-    }
-
-    pub fn from(v: &Vec<Vec<f64>>) -> Tensor2D {
-        // todo ...
-        let out = Self::new(v.len(), v[0].len());
-        for i in 0..(v.len()) {
-            for j in 0..(v[0].len()) {
-                out.borrow_mut()[i][j].0.borrow_mut().data = v[i][j];
-            }
-        }
-        out
-    }
-}
-
 // Tensor operations
+//
+// *
 impl_op_ex!(*|a: &Tensor2D, b: &Tensor1D| -> Tensor1D {
     // todo: refactor
     assert_eq!(a.1 .1, b.1);
@@ -77,6 +57,21 @@ impl_op_ex!(*|a: &Tensor2D, b: &Tensor2D| -> Tensor2D {
     out
 });
 
+impl_op_ex!(*|a: &Tensor2D, b: &Variable| -> Tensor2D {
+    let out = Tensor2D::new(a.1 .0, a.1 .1);
+    for i in 0..(a.1 .0) {
+        for j in 0..(a.1 .1) {
+            let x = out.borrow()[i][j].clone();
+            out.borrow_mut()[i][j] = x * b;
+        }
+    }
+    out
+});
+
+// +
+//
+impl_op_ex!(*|a: &Variable, b: &Tensor2D| -> Tensor2D { b * a });
+
 impl_op_ex!(+|a: &Tensor2D, b: &Tensor2D| -> Tensor2D {
     assert_eq!(a.1, b.1);
     let out = Tensor2D::new(a.1 .0, b.1 .1);
@@ -87,6 +82,35 @@ impl_op_ex!(+|a: &Tensor2D, b: &Tensor2D| -> Tensor2D {
     }
     out
 });
+
+impl_op_ex!(+|a: &Tensor2D, b: &Variable| -> Tensor2D {
+    let out = Tensor2D::new(a.1 .0, a.1 .1);
+    for i in 0..(a.1 .0) {
+        for j in 0..(a.1 .1) {
+            let x = &out.borrow()[i][j];
+            out.borrow_mut()[i][j] = x + b;
+        }
+    }
+    out
+});
+
+impl_op_ex!(+|a: &Variable, b: &Tensor2D| -> Tensor2D { b + a });
+
+impl_op_ex!(-|a: &Tensor2D, b: &Variable| -> Tensor2D { a + -b });
+impl_op_ex!(-|a: &Tensor2D| -> Tensor2D {
+    let out = Tensor2D::new(a.1 .0, a.1 .1);
+    for i in 0..(a.1 .0) {
+        for j in 0..(a.1 .1) {
+            let x = &out.borrow()[i][j];
+            out.borrow_mut()[i][j] = x * -1.;
+        }
+    }
+    out
+});
+
+impl_op_ex!(-|a: &Variable, b: &Tensor2D| -> Tensor2D { a + -b });
+
+impl_op_ex!(/|a: &Tensor2D, b: &Variable| -> Tensor2D { a * (1.0 / b) });
 
 impl Tensor1D {
     pub fn new(n: usize) -> Tensor1D {
@@ -173,5 +197,57 @@ impl Tensor1D {
         });
 
         out
+    }
+
+    pub fn mean(&self) -> Variable {
+        self.sum() / (self.1 as f64)
+    }
+}
+
+impl Tensor2D {
+    pub fn new(r: usize, c: usize) -> Tensor2D {
+        // we can't use vec![T::default(), ...], because of cloning Rc...
+        // todo: something smarter?
+        let v = (0..r)
+            .map(|_| (0..c).map(|_| Variable::default()).collect::<Vec<_>>())
+            .collect::<Vec<_>>();
+        Tensor2D(Rc::new(RefCell::new(v)), (r, c))
+    }
+
+    pub fn from(v: &Vec<Vec<f64>>) -> Tensor2D {
+        // todo ...
+        let out = Self::new(v.len(), v[0].len());
+        for i in 0..(v.len()) {
+            for j in 0..(v[0].len()) {
+                out.borrow_mut()[i][j].0.borrow_mut().data = v[i][j];
+            }
+        }
+        out
+    }
+
+    pub fn sum(&self) -> Variable {
+        // same as in Tensor1D
+
+        let out = Variable::from(
+            self.borrow()
+                .iter()
+                .flatten()
+                .map(|x| x.data())
+                .sum::<f64>(),
+        );
+        out.borrow_mut().op = Some(Operation::Custom(String::from("sum1D")));
+        out.borrow_mut().children = self.borrow().iter().flatten().cloned().collect::<Vec<_>>();
+        out.borrow_mut().fun = Some(|x: &VariableData| {
+            let grad = x.grad;
+            x.children.iter().for_each(|child| {
+                child.borrow_mut().grad += grad;
+            })
+        });
+
+        out
+    }
+
+    pub fn mean(&self) -> Variable {
+        self.sum() / ((self.1 .0) * (self.1 .1)) as f64
     }
 }

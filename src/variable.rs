@@ -109,6 +109,9 @@ impl_op_ex!(/|a: &Variable, b: &Variable| -> Variable {
 impl_op_ex!(-|a: &Variable, b: &Variable| -> Variable { a + -b });
 impl_op!(-|a: &Variable| -> Variable { a * -1.0 });
 
+impl_op_ex!(/|a: &Variable, b: f64| -> Variable { a / Variable::from(b) });
+impl_op_ex!(/|a: f64, b: &Variable| -> Variable { b / Variable::from(a) });
+
 impl Variable {
     pub fn new(tensor: VariableData) -> Variable {
         Variable(Rc::new(RefCell::new(tensor)))
