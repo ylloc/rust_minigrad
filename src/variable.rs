@@ -91,14 +91,14 @@ impl_op_ex!(*|a: &Variable, b: f64| -> Variable { a * Variable::from(b) });
 impl_op_ex!(*|a: f64, b: &Variable| -> Variable { b * Variable::from(a) });
 
 impl_op_ex!(/|a: &Variable, b: &Variable| -> Variable {
-    assert!(a.data() != 0.0, "dividing by zero"); // todo: refactor
+    assert!(b.data() != 0.0, "dividing by zero");
     let out = Variable::from(a.borrow().data / b.borrow().data);
     out.borrow_mut().op = Some(Operation::DIV);
     out.borrow_mut().children = vec![Variable(Rc::clone(a)), Variable(Rc::clone(b))];
     out.borrow_mut().fun = Some(|x: &VariableData| {
         let a = x.children[0].borrow().data;
         let b = x.children[1].borrow().data;
-        // todo: division by zero
+        assert!(b != 0.0, "dividing by zero inside backprop");
         x.children[0].borrow_mut().grad += x.grad / b;
         x.children[1].borrow_mut().grad += a * -x.grad / (b.powf(2.));
     });
@@ -110,7 +110,7 @@ impl_op_ex!(-|a: &Variable, b: &Variable| -> Variable { a + -b });
 impl_op!(-|a: &Variable| -> Variable { a * -1.0 });
 
 impl_op_ex!(/|a: &Variable, b: f64| -> Variable { a / Variable::from(b) });
-impl_op_ex!(/|a: f64, b: &Variable| -> Variable { b / Variable::from(a) });
+impl_op_ex!(/|a: f64, b: &Variable| -> Variable { Variable::from(a) / b });
 
 impl Variable {
     pub fn new(tensor: VariableData) -> Variable {
@@ -220,7 +220,6 @@ impl Variable {
     }
 
     pub fn zero_grad(&self) {
-        // todo: why do we need it?
         assert!(self.borrow().children.is_empty());
         self.borrow_mut().grad = 0.0;
     }

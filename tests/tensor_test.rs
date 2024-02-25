@@ -306,4 +306,11 @@ mod test {
         let x = Tensor2D::from(&vec![vec![1., 2.], vec![1., 2.]]);
         let z = Variable::from(2.) * x;
     }
+
+    #[test]
+    fn f5() {
+        let mut x = Tensor2D::from(&vec![vec![1., 2.], vec![1., 2.]]);
+        x = x / Variable::from(0.2);
+        assert_close!(x.borrow()[0][1].data(), 10.0, 0.0001);
+    }
 }

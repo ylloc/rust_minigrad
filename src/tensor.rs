@@ -61,8 +61,7 @@ impl_op_ex!(*|a: &Tensor2D, b: &Variable| -> Tensor2D {
     let out = Tensor2D::new(a.1 .0, a.1 .1);
     for i in 0..(a.1 .0) {
         for j in 0..(a.1 .1) {
-            let x = out.borrow()[i][j].clone();
-            out.borrow_mut()[i][j] = x * b;
+            out.borrow_mut()[i][j] = &a.0.borrow()[i][j] * b;
         }
     }
     out
@@ -87,7 +86,7 @@ impl_op_ex!(+|a: &Tensor2D, b: &Variable| -> Tensor2D {
     let out = Tensor2D::new(a.1 .0, a.1 .1);
     for i in 0..(a.1 .0) {
         for j in 0..(a.1 .1) {
-            let x = &out.borrow()[i][j];
+            let x = &a.borrow()[i][j];
             out.borrow_mut()[i][j] = x + b;
         }
     }
@@ -101,7 +100,7 @@ impl_op_ex!(-|a: &Tensor2D| -> Tensor2D {
     let out = Tensor2D::new(a.1 .0, a.1 .1);
     for i in 0..(a.1 .0) {
         for j in 0..(a.1 .1) {
-            let x = &out.borrow()[i][j];
+            let x = &a.borrow()[i][j];
             out.borrow_mut()[i][j] = x * -1.;
         }
     }
@@ -110,7 +109,34 @@ impl_op_ex!(-|a: &Tensor2D| -> Tensor2D {
 
 impl_op_ex!(-|a: &Variable, b: &Tensor2D| -> Tensor2D { a + -b });
 
-impl_op_ex!(/|a: &Tensor2D, b: &Variable| -> Tensor2D { a * (1.0 / b) });
+impl_op_ex!(/|a: &Tensor2D, b: &Variable| -> Tensor2D {
+    a * (1.0 / b)
+});
+
+impl_op_ex!(*|a: &Tensor1D, b: &Variable| -> Tensor1D {
+    let out = Tensor1D::new(a.1);
+    for i in 0..(a.1) {
+        let x = &a.borrow()[i];
+        out.borrow_mut()[i] = x * b;
+    }
+    out
+});
+
+impl_op_ex!(*|a: &Variable, b: &Tensor1D| -> Tensor1D { b * a });
+impl_op_ex!(/|a: &Tensor1D, b: &Variable| -> Tensor1D { a * (1.0 / b) });
+
+impl_op_ex!(+|a: &Tensor1D, b: &Variable| -> Tensor1D {
+    let out = Tensor1D::new(a.1);
+    for i in 0..(a.1) {
+        let x = &a.borrow()[i];
+        out.borrow_mut()[i] = x + b;
+    }
+    out
+});
+
+impl_op_ex!(+|a: &Variable, b: &Tensor1D| -> Tensor1D { b + a });
+
+// TODO: use impl_op_commutative!()
 
 impl Tensor1D {
     pub fn new(n: usize) -> Tensor1D {
@@ -227,7 +253,7 @@ impl Tensor2D {
 
     pub fn sum(&self) -> Variable {
         // same as in Tensor1D
-
+        // todo
         let out = Variable::from(
             self.borrow()
                 .iter()
@@ -235,7 +261,7 @@ impl Tensor2D {
                 .map(|x| x.data())
                 .sum::<f64>(),
         );
-        out.borrow_mut().op = Some(Operation::Custom(String::from("sum1D")));
+        out.borrow_mut().op = Some(Operation::Custom(String::from("sum2D")));
         out.borrow_mut().children = self.borrow().iter().flatten().cloned().collect::<Vec<_>>();
         out.borrow_mut().fun = Some(|x: &VariableData| {
             let grad = x.grad;
