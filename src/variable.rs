@@ -1,6 +1,6 @@
-use rand::prelude::*;
-
 use crate::utils::max;
+use auto_ops::*;
+use rand::prelude::*;
 
 use std::{
     cell::RefCell,
@@ -8,7 +8,7 @@ use std::{
     fmt::Debug,
     hash::Hash,
     intrinsics::{cosf64, expf64, sinf64},
-    ops::{Add, Deref, Div, Mul, Neg, Sub},
+    ops::Deref,
     rc::Rc,
 };
 
@@ -57,92 +57,57 @@ impl Hash for Variable {
     }
 }
 
-impl Add for &Variable {
-    type Output = Variable;
+// Operations for variables. auto_ops is amazing!
+impl_op_ex!(+ |a: &Variable, b: &Variable| -> Variable {
+    let out = Variable::from(a.borrow().data + b.borrow().data);
+    out.borrow_mut().op = Some(Operation::ADD);
+    out.borrow_mut().children = vec![Variable(Rc::clone(a)), Variable(Rc::clone(b))];
+    out.borrow_mut().fun = Some(|x: &VariableData| {
+        x.children[0].borrow_mut().grad += x.grad;
+        x.children[1].borrow_mut().grad += x.grad;
+    });
+    out.borrow_mut().id = random();
+    out
+});
 
-    fn add(self, rhs: Self) -> Self::Output {
-        let out = Variable::from(self.borrow().data + rhs.borrow().data);
-        out.borrow_mut().op = Some(Operation::ADD);
-        out.borrow_mut().children = vec![Variable(Rc::clone(self)), Variable(Rc::clone(rhs))];
-        out.borrow_mut().fun = Some(|x: &VariableData| {
-            x.children[0].borrow_mut().grad += x.grad;
-            x.children[1].borrow_mut().grad += x.grad;
-        });
-        out.borrow_mut().id = random();
+impl_op_ex!(+|a: &Variable, b: f64| -> Variable { a + Variable::from(b) });
+impl_op_ex!(+|a: f64, b: &Variable| -> Variable { b + Variable::from(a) });
 
-        out
-    }
-}
+impl_op_ex!(*|a: &Variable, b: &Variable| -> Variable {
+    let out = Variable::from(a.borrow().data * b.borrow().data);
+    out.borrow_mut().op = Some(Operation::MUL);
+    out.borrow_mut().children = vec![Variable(Rc::clone(a)), Variable(Rc::clone(b))];
+    out.borrow_mut().fun = Some(|x: &VariableData| {
+        let a = x.children[0].borrow().data;
+        let b = x.children[1].borrow().data;
+        x.children[0].borrow_mut().grad += b * x.grad;
+        x.children[1].borrow_mut().grad += a * x.grad;
+    });
 
-impl Add<f64> for &Variable {
-    type Output = Variable;
+    out
+});
 
-    fn add(self, rhs: f64) -> Self::Output {
-        self + &Variable::from(rhs)
-    }
-}
+impl_op_ex!(*|a: &Variable, b: f64| -> Variable { a * Variable::from(b) });
+impl_op_ex!(*|a: f64, b: &Variable| -> Variable { b * Variable::from(a) });
 
-impl Mul for &Variable {
-    type Output = Variable;
+impl_op_ex!(/|a: &Variable, b: &Variable| -> Variable {
+    assert!(a.data() != 0.0, "dividing by zero"); // todo: refactor
+    let out = Variable::from(a.borrow().data / b.borrow().data);
+    out.borrow_mut().op = Some(Operation::DIV);
+    out.borrow_mut().children = vec![Variable(Rc::clone(a)), Variable(Rc::clone(b))];
+    out.borrow_mut().fun = Some(|x: &VariableData| {
+        let a = x.children[0].borrow().data;
+        let b = x.children[1].borrow().data;
+        // todo: division by zero
+        x.children[0].borrow_mut().grad += x.grad / b;
+        x.children[1].borrow_mut().grad += a * -x.grad / (b.powf(2.));
+    });
 
-    fn mul(self, rhs: &Variable) -> Self::Output {
-        let out = Variable::from(self.borrow().data * rhs.borrow().data);
-        out.borrow_mut().op = Some(Operation::MUL);
-        out.borrow_mut().children = vec![Variable(Rc::clone(self)), Variable(Rc::clone(rhs))];
-        out.borrow_mut().fun = Some(|x: &VariableData| {
-            let a = x.children[0].borrow().data;
-            let b = x.children[1].borrow().data;
-            x.children[0].borrow_mut().grad += b * x.grad;
-            x.children[1].borrow_mut().grad += a * x.grad;
-        });
+    out
+});
 
-        out
-    }
-}
-
-impl Div for &Variable {
-    type Output = Variable;
-
-    fn div(self, rhs: &Variable) -> Self::Output {
-        assert!(rhs.data() != 0.0, "dividing by zero"); // todo: refactor
-        let out = Variable::from(self.borrow().data / rhs.borrow().data);
-        out.borrow_mut().op = Some(Operation::DIV);
-        out.borrow_mut().children = vec![Variable(Rc::clone(self)), Variable(Rc::clone(rhs))];
-        out.borrow_mut().fun = Some(|x: &VariableData| {
-            let a = x.children[0].borrow().data;
-            let b = x.children[1].borrow().data;
-            // todo: _ / 0
-            x.children[0].borrow_mut().grad += x.grad / b;
-            x.children[1].borrow_mut().grad += a * -x.grad / (b.powf(2.));
-        });
-
-        out
-    }
-}
-
-impl Mul<f64> for &Variable {
-    type Output = Variable;
-
-    fn mul(self, rhs: f64) -> Self::Output {
-        self * &Variable::from(rhs)
-    }
-}
-
-impl Sub for &Variable {
-    type Output = Variable;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        self + &-rhs
-    }
-}
-
-impl Neg for &Variable {
-    type Output = Variable;
-
-    fn neg(self) -> Self::Output {
-        self * -1.0
-    }
-}
+impl_op_ex!(-|a: &Variable, b: &Variable| -> Variable { a + -b });
+impl_op!(-|a: &Variable| -> Variable { a * -1.0 });
 
 impl Variable {
     pub fn new(tensor: VariableData) -> Variable {

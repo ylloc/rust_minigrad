@@ -244,7 +244,6 @@ mod test {
         let x = Tensor1D::new(2);
         *x.0.borrow_mut() = vec![Variable::from(1.0), Variable::from(2.0)];
         let y = &x * &x.t();
-        // grad xx^t = 2x
         y.backward();
         assert_close!(x.borrow()[0].grad(), 2.0, 0.001);
         assert_close!(x.borrow()[1].grad(), 4.0, 0.001);
