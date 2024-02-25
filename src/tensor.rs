@@ -144,42 +144,58 @@ impl Tensor1D {
     }
 
     pub fn from(v: &Vec<f64>) -> Tensor1D {
-        // todo ...
+        assert!(!v.is_empty(), "can't create empty tensor2D");
+
         let out = Self::new(v.len());
-        for i in 0..(v.len()) {
-            out.borrow_mut()[i].0.borrow_mut().data = v[i];
-        }
+        out.borrow_mut()
+            .iter_mut()
+            .zip(v.iter())
+            .for_each(|(o, &v)| {
+                o.borrow_mut().data = v;
+            });
+
         out
     }
 
+    /// transforms Tensor1D(_, d) to Tensor2D(_, (1, d))
     pub fn t(&self) -> Tensor2D {
-        // todo: refactor, how to avoid using .borrow_mut() each time?
         let out = Tensor2D::new(1, self.1);
-        for i in 0..self.1 {
-            out.0.borrow_mut()[0][i] = self.borrow()[i].clone();
-        }
+        out.borrow_mut()[0]
+            .iter_mut()
+            .zip(self.borrow().iter())
+            .for_each(|(o, v)| {
+                *o = v.clone();
+            });
         out
     }
 
+    /// If Tensor1D represents a single Variable, it can be casted
     pub fn cast(&self) -> Variable {
-        assert!(self.1 == 1);
+        assert_eq!(
+            self.1, 1,
+            "Tensor1D must have exactly one element to be casted to Variable."
+        );
         self.0.borrow()[0].clone()
     }
 
+    /// performs backward pass if the tensor is equavalent to a Variable
     pub fn backward(&self) {
         self.cast().backward();
     }
 
     pub fn apply_fn(&self, fun: fn(&Variable) -> Variable) -> Tensor1D {
-        // todo: refactor. how to avoid using phantom_data ?
-        let y = Tensor1D::new(self.1);
-        let mut interior_new = y.borrow_mut();
-        let interior_prev = self.0.borrow_mut();
-        for i in 0..(self.1) {
-            interior_new[i] = fun(&interior_prev[i]);
-        }
-        drop(interior_new);
-        y
+        let out = Tensor1D::new(self.1);
+        let current = self.0.borrow();
+
+        // Apply the function to each element and fill the output tensor
+        out.borrow_mut()
+            .iter_mut()
+            .zip(current.iter())
+            .for_each(|(o, v)| {
+                *o = fun(v);
+            });
+
+        out
     }
 
     pub fn sin(&self) -> Tensor1D {
@@ -202,11 +218,10 @@ impl Tensor1D {
         self.apply_fn(|x| x.exp())
     }
 
+    /// returns (Variable) - the sum of all interior elements
     pub fn sum(&self) -> Variable {
-        // we don't want this behaviour:
-        // a + b + c + d + e <-> x = a + b, y = x + c, z = y + d, t = z + e
-        // grad graph will be very long
-
+        // We want to avoid creating a long graph.
+        // So tensor elements will be the childen of the resulting node.
         let out = Variable::from(self.borrow().iter().map(|x| x.data()).sum::<f64>());
         out.borrow_mut().op = Some(Operation::Custom(String::from("sum1D")));
         out.borrow_mut().children = self.borrow().clone();
@@ -227,13 +242,19 @@ impl Tensor1D {
 
 impl Tensor2D {
     /// Resurns default matrix, filled with zero.
-    /// We can't actually use vec![T::default(), ...] here, because of cloning rc.
+    ///
+    /// We can't actually use vec![T::default(); _] here, because of cloning rc.
+    ///
     /// todo: something smarter?
     pub fn new(r: usize, c: usize) -> Tensor2D {
         let v = (0..r)
             .map(|_| (0..c).map(|_| Variable::default()).collect::<Vec<_>>())
             .collect::<Vec<_>>();
         Tensor2D(Rc::new(RefCell::new(v)), (r, c))
+    }
+
+    pub fn shape(&self) -> (usize, usize) {
+        self.1
     }
 
     pub fn from(v: &Vec<Vec<f64>>) -> Tensor2D {
@@ -250,10 +271,12 @@ impl Tensor2D {
                 }
             }
         }
+
         out
     }
 
     pub fn sum(&self) -> Variable {
+        // Same stratege as in Tensor1D
         let out = Variable::from(
             self.borrow()
                 .iter()
