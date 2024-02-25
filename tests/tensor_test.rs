@@ -205,7 +205,6 @@ mod test {
 
         assert_close!(a.data(), k, 0.1);
         assert_close!(b.data(), l, 0.1);
-        println!("{}", cnt);
     }
 
     #[test]
@@ -216,7 +215,6 @@ mod test {
             a = &x * &Variable::from(0.3);
         }
         a.backward();
-        println!("{}", x.grad());
     }
 
     #[test]
@@ -246,7 +244,6 @@ mod test {
         let x = Tensor1D::new(2);
         *x.0.borrow_mut() = vec![Variable::from(1.0), Variable::from(2.0)];
         let y = &x.t() * &x;
-        println!("{:?}", y.1);
         y.backward();
         assert_close!(x.borrow()[0].grad(), 2.0, 0.001);
         assert_close!(x.borrow()[1].grad(), 4.0, 0.001);
@@ -302,5 +299,12 @@ mod test {
         let y = &x.t() * x;
         y.backward();
         assert_close!(z.borrow_mut()[5].grad(), 14., 0.001);
+    }
+
+    #[test]
+    fn ew() {
+        let x = Tensor1D::from(&vec![1., 2.]);
+        let z = x.sum();
+        assert_close!(z.borrow().data, 3., 0.001);
     }
 }

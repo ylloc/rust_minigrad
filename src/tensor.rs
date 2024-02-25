@@ -34,6 +34,17 @@ impl Tensor2D {
             .collect::<Vec<_>>();
         Tensor2D(Rc::new(RefCell::new(v)), (r, c))
     }
+
+    pub fn from(v: &Vec<Vec<f64>>) -> Tensor2D {
+        // todo ...
+        let out = Self::new(v.len(), v[0].len());
+        for i in 0..(v.len()) {
+            for j in 0..(v[0].len()) {
+                out.borrow_mut()[i][j].0.borrow_mut().data = v[i][j];
+            }
+        }
+        out
+    }
 }
 
 // Tensor operations
