@@ -1,4 +1,4 @@
-use crate::Variable;
+use crate::{Operation, Variable, VariableData};
 use auto_ops::*;
 use std::{cell::RefCell, ops::Deref, rc::Rc};
 
@@ -17,6 +17,14 @@ impl Deref for Tensor1D {
     }
 }
 
+impl Deref for Tensor2D {
+    type Target = Rc<RefCell<Vec<Vec<Variable>>>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 impl Tensor2D {
     pub fn new(r: usize, c: usize) -> Tensor2D {
         // we can't use vec![T::default(), ...], because of cloning Rc...
@@ -28,6 +36,7 @@ impl Tensor2D {
     }
 }
 
+// Tensor operations
 impl_op_ex!(*|a: &Tensor2D, b: &Tensor1D| -> Tensor1D {
     // todo: refactor
     assert_eq!(a.1 .1, b.1);
@@ -69,15 +78,6 @@ impl_op_ex!(+|a: &Tensor2D, b: &Tensor2D| -> Tensor2D {
 });
 
 impl Tensor1D {
-    pub fn t(&self) -> Tensor2D {
-        // todo: refactor
-        let out = Tensor2D::new(1, self.1);
-        for i in 0..self.1 {
-            out.0.borrow_mut()[0][i] = self.borrow()[i].clone();
-        }
-        out
-    }
-
     pub fn new(n: usize) -> Tensor1D {
         Tensor1D(
             Rc::new(RefCell::new(
@@ -85,6 +85,24 @@ impl Tensor1D {
             )),
             n,
         )
+    }
+
+    pub fn from(v: &Vec<f64>) -> Tensor1D {
+        // todo ...
+        let out = Self::new(v.len());
+        for i in 0..(v.len()) {
+            out.borrow_mut()[i].0.borrow_mut().data = v[i];
+        }
+        out
+    }
+
+    pub fn t(&self) -> Tensor2D {
+        // todo: refactor, how to avoid using .borrow_mut() each time?
+        let out = Tensor2D::new(1, self.1);
+        for i in 0..self.1 {
+            out.0.borrow_mut()[0][i] = self.borrow()[i].clone();
+        }
+        out
     }
 
     pub fn cast(&self) -> Variable {
@@ -108,15 +126,6 @@ impl Tensor1D {
         y
     }
 
-    pub fn from(v: &Vec<f64>) -> Tensor1D {
-        // todo ...
-        let out = Self::new(v.len());
-        for i in 0..(v.len()) {
-            out.borrow_mut()[i].0.borrow_mut().data = v[i];
-        }
-        out
-    }
-
     pub fn sin(&self) -> Tensor1D {
         self.apply_fn(|x| x.sin())
     }
@@ -135,5 +144,23 @@ impl Tensor1D {
 
     pub fn exp(&self) -> Tensor1D {
         self.apply_fn(|x| x.exp())
+    }
+
+    pub fn sum(&self) -> Variable {
+        // we don't want this behaviour:
+        // a + b + c + d + e <-> x = a + b, y = x + c, z = y + d, t = z + e
+        // grad graph will be very long
+
+        let out = Variable::from(self.borrow().iter().map(|x| x.data()).sum::<f64>());
+        out.borrow_mut().op = Some(Operation::Custom(String::from("sum1D")));
+        out.borrow_mut().children = self.borrow().clone();
+        out.borrow_mut().fun = Some(|x: &VariableData| {
+            let grad = x.grad;
+            x.children.iter().for_each(|child| {
+                child.borrow_mut().grad += grad;
+            })
+        });
+
+        out
     }
 }
