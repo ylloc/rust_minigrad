@@ -209,11 +209,11 @@ impl Variable {
     }
 
     pub fn silu(&self) -> Variable {
-        self * &self.sigmoid()
+        self * self.sigmoid()
     }
 
     pub fn sigmoid(&self) -> Variable {
-        (&Variable::from(1.0) + &(-self).exp()).pow(-1.0)
+        (Variable::from(1.0) + (-self).exp()).pow(-1.0)
     }
 
     pub fn zero_grad(&self) {

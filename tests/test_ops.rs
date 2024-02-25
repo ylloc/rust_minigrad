@@ -3,7 +3,7 @@ use rust_minigrad::{Operation, Tensor1D, Tensor2D, Variable, VariableData};
 
 #[cfg(test)]
 mod test {
-    use rust_minigrad::Variable;
+    use rust_minigrad::{Tensor1D, Variable};
 
     #[test]
     fn test1() {

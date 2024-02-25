@@ -76,7 +76,7 @@ mod test {
     #[test]
     fn mul_const() {
         let a = Variable::from(3.);
-        let mut c = &a * &Variable::from(2.);
+        let mut c = &a * Variable::from(2.);
         c.backward();
         assert_eq!(a.grad(), 2.);
     }
@@ -185,10 +185,10 @@ mod test {
         while loss_f64 >= 0.0001 {
             let mut loss = Variable::from(0.0);
             for &(x, y) in &lin {
-                loss = &loss + &loss_fn(&(&(&a * &Variable::from(x)) + &b), &Variable::from(y))
+                loss = &loss + &loss_fn(&((&a * Variable::from(x)) + &b), &Variable::from(y))
             }
 
-            loss = &loss / &Variable::from(lin.len() as f64);
+            loss = &loss / Variable::from(lin.len() as f64);
 
             loss.backward();
             loss_f64 = loss.data();
@@ -243,9 +243,33 @@ mod test {
     fn test_1_d() {
         let x = Tensor1D::new(2);
         *x.0.borrow_mut() = vec![Variable::from(1.0), Variable::from(2.0)];
-        let y = &x * &x.t();
+        let y = &x.t() * &x;
+        println!("{:?}", y.1);
         y.backward();
         assert_close!(x.borrow()[0].grad(), 2.0, 0.001);
         assert_close!(x.borrow()[1].grad(), 4.0, 0.001);
+    }
+
+    #[test]
+    fn shape_test() {
+        let x = Tensor2D::new(10, 5);
+        let y = Tensor2D::new(5, 17);
+        let z = &x * &y;
+        assert_eq!(z.1, (10, 17));
+    }
+
+    #[test]
+    fn test2() {
+        let a = Tensor1D::new(6);
+        *a.borrow_mut() = vec![
+            Variable::from(1.),
+            Variable::from(2.),
+            Variable::from(3.),
+            Variable::from(4.),
+            Variable::from(5.),
+            Variable::from(6.),
+        ];
+        let b = a.exp();
+        assert_close!(b.borrow()[0].data(), 2.718281828459045, 0.001);
     }
 }
