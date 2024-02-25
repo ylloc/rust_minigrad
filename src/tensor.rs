@@ -2,10 +2,11 @@ use crate::{Operation, Variable, VariableData};
 use auto_ops::*;
 use std::{cell::RefCell, ops::Deref, rc::Rc};
 
-/// Tensor1D is R^n. 1 column!
+/// Equvalent of R^d. One column
 #[derive(Default)]
 pub struct Tensor1D(pub Rc<RefCell<Vec<Variable>>>, pub usize);
 
+/// Equvalent to matrix: R^(a * b)
 #[derive(Default)]
 pub struct Tensor2D(pub Rc<RefCell<Vec<Vec<Variable>>>>, pub (usize, usize));
 
@@ -25,11 +26,7 @@ impl Deref for Tensor2D {
     }
 }
 
-// Tensor operations
-//
-// *
 impl_op_ex!(*|a: &Tensor2D, b: &Tensor1D| -> Tensor1D {
-    // todo: refactor
     assert_eq!(a.1 .1, b.1);
     let out = Tensor1D::new(a.1 .0);
     for i in 0..(a.1 .0) {
@@ -109,9 +106,7 @@ impl_op_ex!(-|a: &Tensor2D| -> Tensor2D {
 
 impl_op_ex!(-|a: &Variable, b: &Tensor2D| -> Tensor2D { a + -b });
 
-impl_op_ex!(/|a: &Tensor2D, b: &Variable| -> Tensor2D {
-    a * (1.0 / b)
-});
+impl_op_ex!(/|a: &Tensor2D, b: &Variable| -> Tensor2D { a * (1.0 / b) });
 
 impl_op_ex!(*|a: &Tensor1D, b: &Variable| -> Tensor1D {
     let out = Tensor1D::new(a.1);
@@ -231,9 +226,10 @@ impl Tensor1D {
 }
 
 impl Tensor2D {
+    /// Resurns default matrix, filled with zero.
+    /// We can't actually use vec![T::default(), ...] here, because of cloning rc.
+    /// todo: something smarter?
     pub fn new(r: usize, c: usize) -> Tensor2D {
-        // we can't use vec![T::default(), ...], because of cloning Rc...
-        // todo: something smarter?
         let v = (0..r)
             .map(|_| (0..c).map(|_| Variable::default()).collect::<Vec<_>>())
             .collect::<Vec<_>>();
@@ -241,19 +237,23 @@ impl Tensor2D {
     }
 
     pub fn from(v: &Vec<Vec<f64>>) -> Tensor2D {
-        // todo ...
-        let out = Self::new(v.len(), v[0].len());
-        for i in 0..(v.len()) {
-            for j in 0..(v[0].len()) {
-                out.borrow_mut()[i][j].0.borrow_mut().data = v[i][j];
+        assert!(!v.is_empty(), "can't create empty tensor2D");
+        let (r, c) = (v.len(), v[0].len());
+        let out = Self::new(r, c);
+        // trying to avoid double `.borrow_mut()` every step.
+        // {  ...  } - to make compiler happy :)
+        {
+            let inner = out.borrow_mut();
+            for i in 0..r {
+                for j in 0..c {
+                    inner[i][j].borrow_mut().data = v[i][j];
+                }
             }
         }
         out
     }
 
     pub fn sum(&self) -> Variable {
-        // same as in Tensor1D
-        // todo
         let out = Variable::from(
             self.borrow()
                 .iter()

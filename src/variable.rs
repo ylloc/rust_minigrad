@@ -19,7 +19,6 @@ pub struct Variable(pub Rc<RefCell<VariableData>>);
 pub enum Operation {
     ADD,
     MUL,
-    POW,
     DIV,
     Custom(String),
     None,
@@ -69,7 +68,6 @@ impl_op_ex!(+ |a: &Variable, b: &Variable| -> Variable {
     out.borrow_mut().id = random();
     out
 });
-
 impl_op_ex!(+|a: &Variable, b: f64| -> Variable { a + Variable::from(b) });
 impl_op_ex!(+|a: f64, b: &Variable| -> Variable { b + Variable::from(a) });
 
@@ -83,10 +81,8 @@ impl_op_ex!(*|a: &Variable, b: &Variable| -> Variable {
         x.children[0].borrow_mut().grad += b * x.grad;
         x.children[1].borrow_mut().grad += a * x.grad;
     });
-
     out
 });
-
 impl_op_ex!(*|a: &Variable, b: f64| -> Variable { a * Variable::from(b) });
 impl_op_ex!(*|a: f64, b: &Variable| -> Variable { b * Variable::from(a) });
 
@@ -102,15 +98,16 @@ impl_op_ex!(/|a: &Variable, b: &Variable| -> Variable {
         x.children[0].borrow_mut().grad += x.grad / b;
         x.children[1].borrow_mut().grad += a * -x.grad / (b.powf(2.));
     });
-
     out
 });
-
-impl_op_ex!(-|a: &Variable, b: &Variable| -> Variable { a + -b });
-impl_op!(-|a: &Variable| -> Variable { a * -1.0 });
-
 impl_op_ex!(/|a: &Variable, b: f64| -> Variable { a / Variable::from(b) });
 impl_op_ex!(/|a: f64, b: &Variable| -> Variable { Variable::from(a) / b });
+
+impl_op!(-|a: &Variable| -> Variable { a * -1.0 });
+
+impl_op_ex!(-|a: &Variable, b: &Variable| -> Variable { a + -b });
+impl_op_ex!(-|a: &Variable, b: f64| -> Variable { a - Variable::from(b) });
+impl_op_ex!(-|a: f64, b: &Variable| -> Variable { Variable::from(a) - b });
 
 impl Variable {
     pub fn new(tensor: VariableData) -> Variable {
@@ -143,19 +140,19 @@ impl Variable {
         });
     }
 
-    fn dfs(&self, top_sort: &mut Vec<Variable>, used: &mut HashSet<Variable>) {
+    fn dfs(&self, order: &mut Vec<Variable>, used: &mut HashSet<Variable>) {
         if used.insert(self.clone()) {
             self.borrow().children.iter().for_each(|child| {
-                child.dfs(top_sort, used);
+                child.dfs(order, used);
             });
-            top_sort.push(self.clone());
+            order.push(self.clone());
         }
     }
 
-    pub fn pow(&self, _power: f64) -> Variable {
-        let out = Variable::from(self.borrow().data.powf(_power));
-        out.borrow_mut().op = Some(Operation::POW);
-        out.borrow_mut().children = vec![self.clone(), Variable::from(_power)];
+    pub fn pow(&self, p: f64) -> Variable {
+        let out = Variable::from(self.borrow().data.powf(p));
+        out.borrow_mut().op = Some(Operation::Custom(String::from("pow")));
+        out.borrow_mut().children = vec![self.clone(), Variable::from(p)];
         out.borrow_mut().fun = Some(|x: &VariableData| {
             let pow = x.children[1].borrow().data;
             let a = x.children[0].borrow().data.powf(pow - 1.0) * pow;
@@ -219,6 +216,7 @@ impl Variable {
         (Variable::from(1.0) + (-self).exp()).pow(-1.0)
     }
 
+    /// for gradient descent
     pub fn zero_grad(&self) {
         assert!(self.borrow().children.is_empty());
         self.borrow_mut().grad = 0.0;
