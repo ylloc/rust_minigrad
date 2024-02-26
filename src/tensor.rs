@@ -242,6 +242,21 @@ impl Tensor1D {
     pub fn mean(&self) -> Variable {
         self.sum() / (self.1 as f64)
     }
+
+    pub fn softmax(&self) -> Tensor1D {
+        let x = self.clone().exp();
+        let y = x.sum();
+        x / y
+    }
+
+    /// -p * ln p
+    pub fn cross_entropy_loss(&self, other: &Tensor1D) -> Variable {
+        assert!(
+            self.shape() == other.shape(),
+            "1D shapes must be equal to use it"
+        );
+        unimplemented!()
+    }
 }
 
 impl Tensor2D {

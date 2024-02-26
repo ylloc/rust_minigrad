@@ -313,4 +313,10 @@ mod test {
         x = x / Variable::from(0.2);
         assert_close!(x.borrow()[0][1].data(), 10.0, 0.0001);
     }
+    #[test]
+    fn f6() {
+        let x = Tensor1D::from(&vec![1., 2., 3., 4., 5.]);
+        let y = x.softmax();
+        assert_close!(y.borrow()[0].data(), 0.011656230956, 0.001);
+    }
 }
