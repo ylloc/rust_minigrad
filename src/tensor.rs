@@ -64,8 +64,6 @@ impl_op_ex!(*|a: &Tensor2D, b: &Variable| -> Tensor2D {
     out
 });
 
-// +
-//
 impl_op_ex!(*|a: &Variable, b: &Tensor2D| -> Tensor2D { b * a });
 
 impl_op_ex!(+|a: &Tensor2D, b: &Tensor2D| -> Tensor2D {
@@ -130,6 +128,28 @@ impl_op_ex!(+|a: &Tensor1D, b: &Variable| -> Tensor1D {
 });
 
 impl_op_ex!(+|a: &Variable, b: &Tensor1D| -> Tensor1D { b + a });
+
+impl_op_ex!(+|a: &Tensor1D, b: &Tensor1D| -> Tensor1D {
+    let out = Tensor1D::new(a.1);
+    for i in 0..(a.1) {
+        let x = &a.borrow()[i];
+        let y = &b.borrow()[i];
+        out.borrow_mut()[i] = x + y;
+    }
+    out
+});
+
+impl_op_ex!(-|a: &Tensor1D, b: &Tensor1D| -> Tensor1D { a + -b });
+
+// TODO!!!!!!
+impl_op_ex!(-|a: &Tensor1D| -> Tensor1D {
+    let out = Tensor1D::new(a.1);
+    for i in 0..(a.1) {
+        let x = &a.borrow()[i];
+        out.borrow_mut()[i] = -x;
+    }
+    out
+});
 
 // TODO: use impl_op_commutative!()
 
@@ -245,11 +265,29 @@ impl Tensor1D {
 
     pub fn softmax(&self) -> Tensor1D {
         let x = self.clone().exp();
-        let y = x.sum();
-        x / y
+        &x / x.sum()
     }
 
-    /// -p * ln p
+    /// (x1, ..., xn) -> x1^2 + ... + xn^2
+    pub fn l2_2(&self) -> Variable {
+        unimplemented!()
+    }
+
+    /// (x1, ..., xn) -> sqrt(x1^2 + ... + xn^2)
+    pub fn l2_norm(&self) -> Variable {
+        self.l2_2().pow(0.5)
+    }
+
+    /// (x1, ..., xn), (y1, ..., yn) -> (x1-y1)^2 + ... + (xn-yn)^2
+    pub fn mse_loss(&self, other: &Tensor1D) -> Variable {
+        assert!(
+            self.shape() == other.shape(),
+            "1D shapes must be equal to use it"
+        );
+        (self - other).l2_2()
+    }
+
+    /// (p1, ..., pn) -> -p1*ln(p1) - ... - pn*ln(pn)
     pub fn cross_entropy_loss(&self, other: &Tensor1D) -> Variable {
         assert!(
             self.shape() == other.shape(),
