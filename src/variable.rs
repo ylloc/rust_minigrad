@@ -226,4 +226,9 @@ impl Variable {
         let grad = self.grad();
         self.borrow_mut().data -= lr * grad;
     }
+
+    /// Removes a node from the grad graph.
+    pub fn detach(&self) {
+        self.borrow_mut().fun = None;
+    }
 }
