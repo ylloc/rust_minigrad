@@ -259,6 +259,17 @@ impl Tensor1D {
         out
     }
 
+    /// TODO: avoiding copy-pasting
+    pub fn pow(&self, p: f64) -> Tensor1D {
+        let out = Tensor1D::new(self.1);
+        let current = self.0.borrow();
+        out.borrow_mut()
+            .iter_mut()
+            .zip(current.iter())
+            .for_each(|(o, v)| *o = v.pow(p));
+        out
+    }
+
     pub fn mean(&self) -> Variable {
         self.sum() / (self.1 as f64)
     }
@@ -270,7 +281,7 @@ impl Tensor1D {
 
     /// (x1, ..., xn) -> x1^2 + ... + xn^2
     pub fn l2_2(&self) -> Variable {
-        unimplemented!()
+        self.pow(2.0).sum()
     }
 
     /// (x1, ..., xn) -> sqrt(x1^2 + ... + xn^2)
@@ -294,6 +305,11 @@ impl Tensor1D {
             "1D shapes must be equal to use it"
         );
         unimplemented!()
+    }
+
+    /// actually, not optimal
+    pub fn hadamard_product(&self, other: &Tensor1D) -> Variable {
+        (other.t() * self).cast()
     }
 }
 

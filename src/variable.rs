@@ -7,7 +7,7 @@ use std::{
     collections::HashSet,
     fmt::Debug,
     hash::Hash,
-    intrinsics::{cosf64, expf64, sinf64},
+    intrinsics::{cosf64, expf64, logf64, sinf64},
     ops::Deref,
     rc::Rc,
 };
@@ -68,6 +68,7 @@ impl_op_ex!(+ |a: &Variable, b: &Variable| -> Variable {
     out.borrow_mut().id = random();
     out
 });
+
 impl_op_ex!(+|a: &Variable, b: f64| -> Variable { a + Variable::from(b) });
 impl_op_ex!(+|a: f64, b: &Variable| -> Variable { b + Variable::from(a) });
 
@@ -204,6 +205,18 @@ impl Variable {
         out.borrow_mut().fun = Some(|x: &VariableData| {
             let val = unsafe { expf64(x.children[0].borrow_mut().data) };
             x.children[0].borrow_mut().grad += x.grad * val;
+        });
+        out
+    }
+
+    pub fn ln(self) -> Variable {
+        let ln = unsafe { logf64(self.borrow().data) };
+        let out = Variable::from(ln);
+        out.borrow_mut().op = Some(Operation::Custom(String::from("ln")));
+        out.borrow_mut().children = vec![self.clone()];
+        out.borrow_mut().fun = Some(|x: &VariableData| {
+            let val = (x.children[0].borrow_mut().data);
+            x.children[0].borrow_mut().grad += -x.grad / val.powf(2.0);
         });
         out
     }

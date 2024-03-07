@@ -16,8 +16,6 @@ macro_rules! assert_close {
 
 #[cfg(test)]
 mod test {
-    use std::pin::Pin;
-
     use crate::*;
 
     #[test]
@@ -318,5 +316,13 @@ mod test {
         let x = Tensor1D::from(&vec![1., 2., 3., 4., 5.]);
         let y = x.softmax();
         assert_close!(y.borrow()[0].data(), 0.011656230956, 0.001);
+    }
+
+    #[test]
+    fn ln_test() {
+        let x = Variable::from(2.0);
+        let mut y = (&x * &x).ln();
+        y.backward();
+        assert_close!(x.grad(), -0.25, 0.001);
     }
 }
