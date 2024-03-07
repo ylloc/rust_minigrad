@@ -304,12 +304,16 @@ impl Tensor1D {
             self.shape() == other.shape(),
             "1D shapes must be equal to use it"
         );
-        unimplemented!()
+        -self.hadamard_product(&other.ln())
     }
 
-    /// actually, not optimal
+    /// actually, not optimal, TODO
     pub fn hadamard_product(&self, other: &Tensor1D) -> Variable {
         (other.t() * self).cast()
+    }
+
+    pub fn ln(&self) -> Tensor1D {
+        self.apply_fn(|x| x.ln())
     }
 }
 

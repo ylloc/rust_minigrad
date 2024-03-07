@@ -105,6 +105,7 @@ impl_op_ex!(/|a: &Variable, b: f64| -> Variable { a / Variable::from(b) });
 impl_op_ex!(/|a: f64, b: &Variable| -> Variable { Variable::from(a) / b });
 
 impl_op!(-|a: &Variable| -> Variable { a * -1.0 });
+impl_op!(-|a: Variable| -> Variable { a * -1.0 });
 
 impl_op_ex!(-|a: &Variable, b: &Variable| -> Variable { a + -b });
 impl_op_ex!(-|a: &Variable, b: f64| -> Variable { a - Variable::from(b) });
@@ -209,7 +210,7 @@ impl Variable {
         out
     }
 
-    pub fn ln(self) -> Variable {
+    pub fn ln(&self) -> Variable {
         let ln = unsafe { logf64(self.borrow().data) };
         let out = Variable::from(ln);
         out.borrow_mut().op = Some(Operation::Custom(String::from("ln")));
