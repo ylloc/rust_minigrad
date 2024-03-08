@@ -325,4 +325,12 @@ mod test {
         y.backward();
         assert_close!(x.grad(), -0.25, 0.001);
     }
+
+    #[test]
+    fn tan_test() {
+        let x = Variable::from(2.0);
+        let mut y = (&x * &x).tan();
+        y.backward();
+        assert_close!(x.grad(), 9.3622, 0.001);
+    }
 }

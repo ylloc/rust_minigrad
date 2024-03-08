@@ -69,8 +69,7 @@ impl_op_ex!(+ |a: &Variable, b: &Variable| -> Variable {
     out
 });
 
-impl_op_ex!(+|a: &Variable, b: f64| -> Variable { a + Variable::from(b) });
-impl_op_ex!(+|a: f64, b: &Variable| -> Variable { b + Variable::from(a) });
+impl_op_ex_commutative!(+|a: f64, b: &Variable| -> Variable { b + Variable::from(a) });
 
 impl_op_ex!(*|a: &Variable, b: &Variable| -> Variable {
     let out = Variable::from(a.borrow().data * b.borrow().data);
@@ -84,8 +83,7 @@ impl_op_ex!(*|a: &Variable, b: &Variable| -> Variable {
     });
     out
 });
-impl_op_ex!(*|a: &Variable, b: f64| -> Variable { a * Variable::from(b) });
-impl_op_ex!(*|a: f64, b: &Variable| -> Variable { b * Variable::from(a) });
+impl_op_ex_commutative!(*|a: &Variable, b: f64| -> Variable { a * Variable::from(b) });
 
 impl_op_ex!(/|a: &Variable, b: &Variable| -> Variable {
     assert!(b.data() != 0.0, "dividing by zero");
@@ -101,6 +99,7 @@ impl_op_ex!(/|a: &Variable, b: &Variable| -> Variable {
     });
     out
 });
+
 impl_op_ex!(/|a: &Variable, b: f64| -> Variable { a / Variable::from(b) });
 impl_op_ex!(/|a: f64, b: &Variable| -> Variable { Variable::from(a) / b });
 
@@ -218,6 +217,18 @@ impl Variable {
         out.borrow_mut().fun = Some(|x: &VariableData| {
             let val = (x.children[0].borrow_mut().data);
             x.children[0].borrow_mut().grad += -x.grad / val.powf(2.0);
+        });
+        out
+    }
+
+    pub fn tan(&self) -> Variable {
+        let tan = unsafe { sinf64(self.borrow().data) / cosf64(self.borrow().data) };
+        let out = Variable::from(tan);
+        out.borrow_mut().op = Some(Operation::Custom(String::from("tan")));
+        out.borrow_mut().children = vec![self.clone()];
+        out.borrow_mut().fun = Some(|x: &VariableData| {
+            let val = unsafe { cosf64(x.children[0].borrow_mut().data) };
+            x.children[0].borrow_mut().grad += x.grad / val.powf(2.0);
         });
         out
     }

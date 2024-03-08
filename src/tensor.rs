@@ -5,11 +5,6 @@ use std::{cell::RefCell, ops::Deref, rc::Rc};
 /// Equvalent of R^d. One column
 #[derive(Default)]
 pub struct Tensor1D(pub Rc<RefCell<Vec<Variable>>>, pub usize);
-
-/// Equvalent to matrix: R^(a * b)
-#[derive(Default)]
-pub struct Tensor2D(pub Rc<RefCell<Vec<Vec<Variable>>>>, pub (usize, usize));
-
 impl Deref for Tensor1D {
     type Target = Rc<RefCell<Vec<Variable>>>;
 
@@ -17,6 +12,10 @@ impl Deref for Tensor1D {
         &self.0
     }
 }
+
+/// Equvalent to matrix: R^(a * b)
+#[derive(Default)]
+pub struct Tensor2D(pub Rc<RefCell<Vec<Vec<Variable>>>>, pub (usize, usize));
 
 impl Deref for Tensor2D {
     type Target = Rc<RefCell<Vec<Vec<Variable>>>>;
@@ -54,7 +53,7 @@ impl_op_ex!(*|a: &Tensor2D, b: &Tensor2D| -> Tensor2D {
     out
 });
 
-impl_op_ex!(*|a: &Tensor2D, b: &Variable| -> Tensor2D {
+impl_op_ex_commutative!(*|a: &Tensor2D, b: &Variable| -> Tensor2D {
     let out = Tensor2D::new(a.1 .0, a.1 .1);
     for i in 0..(a.1 .0) {
         for j in 0..(a.1 .1) {
@@ -64,7 +63,14 @@ impl_op_ex!(*|a: &Tensor2D, b: &Variable| -> Tensor2D {
     out
 });
 
-impl_op_ex!(*|a: &Variable, b: &Tensor2D| -> Tensor2D { b * a });
+impl_op_ex_commutative!(*|a: &Tensor1D, b: &Variable| -> Tensor1D {
+    let out = Tensor1D::new(a.1);
+    for i in 0..(a.1) {
+        let x = &a.borrow()[i];
+        out.borrow_mut()[i] = x * b;
+    }
+    out
+});
 
 impl_op_ex!(+|a: &Tensor2D, b: &Tensor2D| -> Tensor2D {
     assert_eq!(a.1, b.1);
@@ -77,7 +83,7 @@ impl_op_ex!(+|a: &Tensor2D, b: &Tensor2D| -> Tensor2D {
     out
 });
 
-impl_op_ex!(+|a: &Tensor2D, b: &Variable| -> Tensor2D {
+impl_op_ex_commutative!(+|a: &Tensor2D, b: &Variable| -> Tensor2D {
     let out = Tensor2D::new(a.1 .0, a.1 .1);
     for i in 0..(a.1 .0) {
         for j in 0..(a.1 .1) {
@@ -88,37 +94,7 @@ impl_op_ex!(+|a: &Tensor2D, b: &Variable| -> Tensor2D {
     out
 });
 
-impl_op_ex!(+|a: &Variable, b: &Tensor2D| -> Tensor2D { b + a });
-
-impl_op_ex!(-|a: &Tensor2D, b: &Variable| -> Tensor2D { a + -b });
-impl_op_ex!(-|a: &Tensor2D| -> Tensor2D {
-    let out = Tensor2D::new(a.1 .0, a.1 .1);
-    for i in 0..(a.1 .0) {
-        for j in 0..(a.1 .1) {
-            let x = &a.borrow()[i][j];
-            out.borrow_mut()[i][j] = x * -1.;
-        }
-    }
-    out
-});
-
-impl_op_ex!(-|a: &Variable, b: &Tensor2D| -> Tensor2D { a + -b });
-
-impl_op_ex!(/|a: &Tensor2D, b: &Variable| -> Tensor2D { a * (1.0 / b) });
-
-impl_op_ex!(*|a: &Tensor1D, b: &Variable| -> Tensor1D {
-    let out = Tensor1D::new(a.1);
-    for i in 0..(a.1) {
-        let x = &a.borrow()[i];
-        out.borrow_mut()[i] = x * b;
-    }
-    out
-});
-
-impl_op_ex!(*|a: &Variable, b: &Tensor1D| -> Tensor1D { b * a });
-impl_op_ex!(/|a: &Tensor1D, b: &Variable| -> Tensor1D { a * (1.0 / b) });
-
-impl_op_ex!(+|a: &Tensor1D, b: &Variable| -> Tensor1D {
+impl_op_ex_commutative!(+|a: &Tensor1D, b: &Variable| -> Tensor1D {
     let out = Tensor1D::new(a.1);
     for i in 0..(a.1) {
         let x = &a.borrow()[i];
@@ -127,14 +103,23 @@ impl_op_ex!(+|a: &Tensor1D, b: &Variable| -> Tensor1D {
     out
 });
 
-impl_op_ex!(+|a: &Variable, b: &Tensor1D| -> Tensor1D { b + a });
-
 impl_op_ex!(+|a: &Tensor1D, b: &Tensor1D| -> Tensor1D {
     let out = Tensor1D::new(a.1);
     for i in 0..(a.1) {
         let x = &a.borrow()[i];
         let y = &b.borrow()[i];
         out.borrow_mut()[i] = x + y;
+    }
+    out
+});
+
+impl_op_ex!(-|a: &Tensor2D| -> Tensor2D {
+    let out = Tensor2D::new(a.1 .0, a.1 .1);
+    for i in 0..(a.1 .0) {
+        for j in 0..(a.1 .1) {
+            let x = &a.borrow()[i][j];
+            out.borrow_mut()[i][j] = x * -1.;
+        }
     }
     out
 });
@@ -150,6 +135,12 @@ impl_op_ex!(-|a: &Tensor1D| -> Tensor1D {
     }
     out
 });
+
+impl_op_ex!(-|a: &Variable, b: &Tensor2D| -> Tensor2D { a + -b });
+impl_op_ex!(-|a: &Tensor2D, b: &Variable| -> Tensor2D { a + -b });
+
+impl_op_ex!(/|a: &Tensor2D, b: &Variable| -> Tensor2D { a * (1.0 / b) });
+impl_op_ex!(/|a: &Tensor1D, b: &Variable| -> Tensor1D { a * (1.0 / b) });
 
 // TODO: use impl_op_commutative!()
 
